@@ -1,0 +1,68 @@
+/* ========== Style Profile Container ========== */
+.profile-container {
+    max-width: 400px;
+    margin: auto;
+    padding: 20px;
+    border: 1px solid #000000;
+    border-radius: 10px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    background: #c6a475;
+}
+
+/* ========== Avatar User ========== */
+.profile-container img {
+    border: 2px solid #ddd;
+    padding: 5px;
+    background: #f8f9fa;
+}
+
+/* ========== Form Input ========== */
+.form-group {
+    display: flex;
+    flex-direction: column;
+    margin-top: 10px;
+}
+
+.form-group label {
+    font-weight: bold;
+    margin-bottom: 5px;
+    text-align: left;
+}
+
+.form-group input {
+    width: 100%;
+    height: 40px;
+    padding: 8px;
+    border: 1px solid #000;
+    border-radius: 5px;
+    text-align: left;
+}
+
+/* ========== Password Field with Eye Icon ========== */
+.password-container {
+    position: relative;
+    width: 100%;
+}
+
+.password-container input {
+    padding-right: 40px; /* Ruang untuk ikon */
+}
+
+.password-container .toggle-password {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    cursor: pointer;
+    font-size: 18px;
+    color: #666;
+}
+
+.password-container .toggle-password:hover {
+    color: #333;
+}
+
+/* ========== Button Style ========== */
+.btn {
+    font-weight: bold;
+}
