@@ -118,7 +118,7 @@ class MejaController extends Controller
             $tipeSlug = str_replace(' ', '_', strtolower($request->tipe_meja));
             $lantai = $request->lantai;
 
-            $baseUrl = 'https://gemilangcafesaung.wayangkedawon.my.id';
+            $baseUrl = 'https://gemilangcafesaung.wayangkedawon.my.id/';
             $fullUrl = $baseUrl . "/dinein/booking/" . $meja->id;
 
             $fileName = "booking_{$mejaNomor}_{$tipeSlug}_lantai{$lantai}.png";
@@ -172,22 +172,15 @@ class MejaController extends Controller
 
             $fullUrl = $baseUrl . "/dinein/booking/" . $meja->id;
             $fileName = "booking_{$mejaNomor}_{$tipeSlug}_lantai{$lantai}.png";
+            $filePath = public_path("qr_codes/{$fileName}");
 
-            // langsung ke direktori 'qr_codes' di root project
-            $dirPath = base_path('qr_codes');
-            $filePath = $dirPath . '/' . $fileName;
-
-            // buat folder jika belum ada
-            if (!file_exists($dirPath)) {
-                mkdir($dirPath, 0755, true);
+            if (!file_exists(public_path('qr_codes'))) {
+                mkdir(public_path('qr_codes'), 0755, true);
             }
 
-            
             $qr = new DNS2D();
-            $qr->setStorPath($dirPath . '/');
+            $qr->setStorPath(public_path('qr_codes/'));
             $qrPng = $qr->getBarcodePNG($fullUrl, 'QRCODE', 10, 10);
-
-            // simpan file ke folder qr_codes
             file_put_contents($filePath, base64_decode($qrPng));
 
             $meja->update([
