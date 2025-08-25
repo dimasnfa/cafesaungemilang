@@ -62,6 +62,7 @@ class AppServiceProvider extends ServiceProvider
                 'cartCountDinein' => $cartCountDinein,
                 'cartCountTakeaway' => $cartCountTakeaway,
             ]);
+            
         });
     }
 }

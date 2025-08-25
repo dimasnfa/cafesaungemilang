@@ -1,97 +1,71 @@
-<?php
+?php
 
-namespace App\Http\Controllers\Admin;
+// namespace App\Http\Controllers\Admin;
 
-use App\Http\Controllers\Controller;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Config;
-use App\Models\Pembayaran;
-use App\Models\Pesanan;
+// use App\Http\Controllers\Controller;
+// use Illuminate\Http\Request;
+// use Illuminate\Support\Facades\Log;
+// use App\Models\Pembayaran;
+// use App\Models\Pesanan;
 
-class MidtransWebhookController extends Controller
-{
-    public function handleWebhook(Request $request)
-    {
-        $serverKey = Config::get('services.midtrans.server_key');
-        $rawBody = $request->getContent();
-        $data = json_decode($rawBody, true);
+// class MidtransWebhookController extends Controller
+// {
+//     public function handleWebhook(Request $request)
+//     {
+//         $serverKey = config('services.midtrans.server_key');
+//         $rawBody = $request->getContent();
+//         $data = json_decode($rawBody, true);
 
-        Log::info('✅ Midtrans Webhook Received', $data);
+//         Log::info('📥 Incoming Midtrans Webhook:', $data);
 
-        if (!isset($data['order_id'], $data['status_code'], $data['gross_amount'], $data['signature_key'])) {
-            return response()->json(['message' => 'Invalid data'], 400);
-        }
+//         // Cek apakah data yang diperlukan tersedia
+//         if (!$data || !isset($data['order_id'])) {
+//             Log::warning('❌ Webhook tanpa order_id!');
+//             return response()->json(['message' => 'Invalid payload'], 400);
+//         }
 
-        // Validasi signature
-        $expectedSignature = hash('sha512', $data['order_id'] . $data['status_code'] . $data['gross_amount'] . $serverKey);
-        if ($data['signature_key'] !== $expectedSignature) {
-            Log::warning('❌ Invalid Midtrans Signature!');
-            return response()->json(['message' => 'Unauthorized'], 403);
-        }
+//         // [🧪 Nonaktifkan Signature Validasi SEMENTARA]
+//         // $expectedSignature = hash('sha512', $data['order_id'] . $data['status_code'] . $data['gross_amount'] . $serverKey);
+//         // if ($data['signature_key'] !== $expectedSignature) {
+//         //     Log::warning('❌ Invalid Midtrans Signature!');
+//         //     return response()->json(['message' => 'Unauthorized'], 403);
+//         // }
 
-        $orderId = $data['order_id'];
-        $transactionStatus = $data['transaction_status'] ?? null;
-        $grossAmount = $data['gross_amount'];
-        $paymentType = $data['payment_type'] ?? 'qris';
+//         // Ambil ID pesanan dari order_id (format: PESANAN-<id>-<timestamp>)
+//         $orderParts = explode('-', $data['order_id']);
+//         $pesananId = isset($orderParts[1]) ? $orderParts[1] : null;
 
-        // Mapping status Midtrans ke status lokal
-        $statusLokal = match ($transactionStatus) {
-            'settlement', 'capture' => 'dibayar',
-            'pending' => 'pending',
-            'cancel', 'deny', 'expire', 'failure' => 'gagal',
-            default => 'pending',
-        };
+//         if (!$pesananId) {
+//             Log::error('❌ Tidak bisa parsing order_id: ' . $data['order_id']);
+//             return response()->json(['message' => 'Invalid order ID'], 400);
+//         }
 
-        // Cari atau buat pembayaran berdasarkan order_id
-        $pembayaran = Pembayaran::where('order_id', $orderId)->first();
+//         $pesanan = Pesanan::with('meja')->find($pesananId);
 
-        if (!$pembayaran) {
-            // Deteksi pesanan_id dari order_id (PESANAN-123-xxxx atau ORDER-123-xxxx)
-            $pesananId = null;
+//         if (!$pesanan) {
+//             Log::error('❌ Pesanan tidak ditemukan: ID ' . $pesananId);
+//             return response()->json(['message' => 'Pesanan not found'], 404);
+//         }
 
-            if (preg_match('/(?:PESANAN|ORDER)-(\d+)-/', $orderId, $matches)) {
-                $pesananId = (int)$matches[1];
-            }
+//         // Cek apakah sudah pernah dibayar
+//         if (Pembayaran::where('order_id', $data['order_id'])->exists()) {
+//             Log::info('✅ Pembayaran sudah tercatat sebelumnya: ' . $data['order_id']);
+//             return response()->json(['message' => 'Already processed'], 200);
+//         }
 
-            $pesanan = Pesanan::find($pesananId);
+//         // Simpan pembayaran
+//         Pembayaran::create([
+//             'order_id' => $data['order_id'],
+//             'pesanan_id' => $pesanan->id,
+//             'total_bayar' => $data['gross_amount'],
+//             'metode_pembayaran' => $data['payment_type'] ?? 'midtrans',
+//             'status_pembayaran' => $data['transaction_status'],
+//             'jenis_pesanan' => $pesanan->jenis_pesanan,
+//             'nama_pelanggan' => $pesanan->nama_pelanggan ?? $pesanan->meja?->nomor_meja,
+//             'nomor_wa' => $pesanan->nomor_wa ?? '-',
+//         ]);
 
-            $pembayaran = Pembayaran::create([
-                'order_id'           => $orderId,
-                'pesanan_id'         => $pesanan?->id,
-                'total_bayar'        => $grossAmount,
-                'metode_pembayaran'  => $paymentType,
-                'status_pembayaran'  => $statusLokal,
-                'jenis_pesanan'      => $pesanan?->jenis_pesanan,
-                'nomor_meja' => $pesanan?->meja?->nomor_meja,
-                'nama_pelanggan'     => $pesanan?->nama_pelanggan,
-                'nomor_wa'           => $pesanan?->nomor_wa,
-            ]);
-
-            Log::info("✅ Pembayaran baru dibuat untuk order_id: $orderId");
-        } else {
-            // Update status pembayaran jika sudah ada
-            $pembayaran->status_pembayaran = $statusLokal;
-            $pembayaran->save();
-
-            Log::info("✅ Status pembayaran order_id $orderId diupdate ke: $statusLokal");
-        }
-
-        // Update status pesanan jika ada
-        if ($pembayaran->pesanan) {
-            $statusPesanan = match ($statusLokal) {
-                'dibayar' => 'dibayar',
-                'gagal' => 'dibatalkan',
-                default => 'pending',
-            };
-
-            $pembayaran->pesanan->update([
-                'status_pesanan' => $statusPesanan,
-            ]);
-
-            Log::info("✅ Status pesanan ID {$pembayaran->pesanan->id} diupdate ke: $statusPesanan");
-        }
-
-        return response()->json(['message' => 'Webhook processed successfully']);
-    }
-}
+//         Log::info('✅ Pembayaran berhasil disimpan: ' . $data['order_id']);
+//         return response()->json(['message' => 'Success'], 200);
+//     }
+// }

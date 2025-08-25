@@ -45,7 +45,7 @@
             <ul class="nav nav-pills nav-sidebar flex-column" data-widget="treeview" role="menu" data-accordion="false">
                 @foreach($menus as $menu)
                     @if(auth()->user()->hasRole('admin') || 
-                (auth()->user()->hasRole('kasir') && in_array($menu->title, ['Kategori','Meja', 'Menu','Detail Pesanan','Pesanan', 'Pembayaran'])))
+                (auth()->user()->hasRole('kasir') && in_array($menu->title, ['Meja', 'Menu','Detail Pesanan','Pesanan', 'Pembayaran'])))
                         <li class="nav-item">
                             <a href="{{ $menu->path[0] !== '/' ? '/' . $menu->path : $menu->path }}" class="nav-link {{ request()->is(ltrim($menu->path, '/')) ? 'active' : '' }}">
                                 <i class="nav-icon {{ $menu->icon }}"></i>

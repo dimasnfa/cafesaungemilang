@@ -3,106 +3,137 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use Illuminate\Http\Request;
 use App\Models\Menu;
 use App\Models\Kategori;
-use Illuminate\Http\Request;
+use App\Models\RekomendasiMenu; // Import model yang baru
+use App\Models\DetailPesanan;
 use Illuminate\Support\Facades\DB;
 
 class RekomendasiMenuController extends Controller
 {
-    /**
-     * Untuk admin - tampilkan 5 menu paling sering dipesan (semua jenis pesanan)
-     */
     public function index()
     {
-        $topMenuIds = DB::table('detailpesanan')
-            ->join('pesanan', 'detailpesanan.pesanan_id', '=', 'pesanan.id')
-            ->select('detailpesanan.menu_id', DB::raw('SUM(detailpesanan.jumlah) as total'))
-            ->groupBy('detailpesanan.menu_id')
-            ->orderByDesc('total')
-            ->limit(5)
-            ->pluck('detailpesanan.menu_id')
-            ->toArray();
-
-        $menus = Menu::withSum('detailpesanan', 'jumlah')
-            ->whereIn('id', $topMenuIds)
-            ->orderByRaw("FIELD(id, " . implode(',', $topMenuIds) . ")")
-            ->get();
-
-        $kategoris = Kategori::all();
-
-        return view('admin.rekomendasi.index', compact('menus', 'kategoris'));
+        $menus = Menu::with('kategori')->get();
+        return view('rekomendasi.index', compact('menus'));
     }
 
-    /**
-     * Untuk Dine-in: tampilkan rekomendasi menu jika sudah ada session meja_id
-     */
-    public function showRekomendasi(Request $request)
+    public function getRecommendationsForMenu(Request $request)
     {
-        if (!session()->has('meja_id')) {
-            return redirect()->route('booking', ['jenis' => 'dinein']);
+        $selectedMenuIds = $request->input('selected_menus', []);
+
+        if (empty($selectedMenuIds)) {
+            return response()->json([
+                'status' => true,
+                'recommendations' => $this->getFallbackRecommendations([]),
+                'algorithm_used' => 'default',
+            ]);
         }
 
-        session(['jenis_pesanan' => 'dinein']);
-        $meja_id = session('meja_id');
+        $recommendations = [];
+        $algorithmUsed = 'default';
+        $recommendedMenuIds = [];
 
-        $topMenuIds = DB::table('detailpesanan')
-            ->join('pesanan', 'detailpesanan.pesanan_id', '=', 'pesanan.id')
-            ->where('pesanan.jenis_pesanan', 'dinein')
-            ->select('detailpesanan.menu_id', DB::raw('SUM(detailpesanan.jumlah) as total'))
-            ->groupBy('detailpesanan.menu_id')
-            ->orderByDesc('total')
-            ->limit(10)
-            ->pluck('detailpesanan.menu_id')
-            ->toArray();
+        // 1. Coba ambil rekomendasi dari Apriori (yang sudah dihitung sebelumnya)
+        $aprioriRules = RekomendasiMenu::whereIn('menu_id', $selectedMenuIds)->get();
 
-        $menus = Menu::with('kategori')
-            ->withSum(['detailpesanan as detailpesanan_sum_jumlah' => function ($q) {
-                $q->whereHas('pesanan', function ($q2) {
-                    $q2->where('jenis_pesanan', 'dinein');
-                });
-            }], 'jumlah')
-            ->whereIn('id', $topMenuIds)
-            ->orderByRaw("FIELD(id, " . implode(',', $topMenuIds) . ")")
-            ->get();
+        if ($aprioriRules->isNotEmpty()) {
+            foreach ($aprioriRules as $rule) {
+                $recommendedMenuIds = array_merge($recommendedMenuIds, $rule->recommended_menu_ids);
+            }
+            $recommendedMenuIds = array_unique($recommendedMenuIds);
 
-        return view('cart.dinein.rekomendasimenu', compact('menus', 'meja_id'));
+            $aprioriRecommendations = Menu::with('kategori')
+                ->whereIn('id', $recommendedMenuIds)
+                ->whereNotIn('id', $selectedMenuIds)
+                ->take(3)
+                ->get();
+            
+            if ($aprioriRecommendations->isNotEmpty()) {
+                foreach ($aprioriRecommendations as $menu) {
+                    $recommendations[] = $this->formatMenuData($menu);
+                }
+                $algorithmUsed = 'apriori';
+            }
+        }
+
+        // 2. Jika Apriori tidak menemukan rule, gunakan metode fallback yang lebih cerdas
+        if ($algorithmUsed === 'default') {
+            $recommendations = $this->getFallbackRecommendations($selectedMenuIds);
+        }
+
+        return response()->json([
+            'status' => true,
+            'recommendations' => $recommendations,
+            'algorithm_used' => $algorithmUsed,
+        ]);
     }
 
-    /**
-     * Untuk publik: tampilkan rekomendasi menu berdasarkan jenis pesanan
-     */
-    public function indexPublic($tipe)
+    private function getFallbackRecommendations(array $selectedMenuIds): array
     {
-        if (!in_array($tipe, ['dinein', 'takeaway'])) {
-            abort(404);
+        if (empty($selectedMenuIds)) {
+            $popularMenus = DetailPesanan::select('menu_id', DB::raw('count(*) as total_pesanan'))
+                                        ->groupBy('menu_id')
+                                        ->orderByDesc('total_pesanan')
+                                        ->with('menu.kategori')
+                                        ->whereHas('menu')
+                                        ->take(3)
+                                        ->get();
+            $formattedMenus = [];
+            foreach ($popularMenus as $item) {
+                if ($item->menu) {
+                    $formattedMenus[] = $this->formatMenuData($item->menu);
+                }
+            }
+            return $formattedMenus;
         }
 
-        if ($tipe === 'dinein') {
-            return redirect()->route('rekomendasi.dinein');
-        }
-
-        $topMenuIds = DB::table('detailpesanan')
-            ->join('pesanan', 'detailpesanan.pesanan_id', '=', 'pesanan.id')
-            ->where('pesanan.jenis_pesanan', $tipe)
-            ->select('detailpesanan.menu_id', DB::raw('SUM(detailpesanan.jumlah) as total'))
-            ->groupBy('detailpesanan.menu_id')
-            ->orderByDesc('total')
-            ->pluck('detailpesanan.menu_id')
-            ->toArray();
-
-        $menus = Menu::with('kategori')
-            ->withSum(['detailpesanan as detailpesanan_sum_jumlah' => function ($q) use ($tipe) {
-                $q->whereHas('pesanan', function ($q2) use ($tipe) {
-                    $q2->where('jenis_pesanan', $tipe);
-                });
-            }], 'jumlah')
-            ->whereIn('id', $topMenuIds)
-            ->orderByRaw("FIELD(id, " . implode(',', $topMenuIds) . ")")
+        $selectedKategoriIds = Menu::whereIn('id', $selectedMenuIds)->pluck('kategori_id')->toArray();
+        $selectedKategoriIds = array_unique($selectedKategoriIds);
+        
+        $popularMenus = DetailPesanan::select('menu_id', DB::raw('count(*) as total_pesanan'))
+            ->groupBy('menu_id')
+            ->orderByDesc('total_pesanan')
+            ->with('menu.kategori')
+            ->whereNotIn('menu_id', $selectedMenuIds)
+            ->whereHas('menu', function($q) use ($selectedKategoriIds) {
+                $q->whereNotIn('kategori_id', $selectedKategoriIds);
+            })
+            ->take(3)
             ->get();
+        
+        $formattedMenus = [];
+        foreach ($popularMenus as $item) {
+            if ($item->menu) {
+                $formattedMenus[] = $this->formatMenuData($item->menu);
+            }
+        }
+        
+        if (count($formattedMenus) < 3) {
+            $remainingCount = 3 - count($formattedMenus);
+            $additionalMenus = Menu::with('kategori')
+                ->whereNotIn('id', $selectedMenuIds)
+                ->whereNotIn('id', array_column($formattedMenus, 'id'))
+                ->inRandomOrder()
+                ->take($remainingCount)
+                ->get();
+            
+            foreach ($additionalMenus as $menu) {
+                $formattedMenus[] = $this->formatMenuData($menu);
+            }
+        }
 
-        $kategoris = Kategori::all();
+        return $formattedMenus;
+    }
 
-        return view('cart.takeaway.rekomendasimenu', compact('menus', 'kategoris'));
+    private function formatMenuData($menu): array
+    {
+        return [
+            'id' => $menu->id,
+            'nama_menu' => $menu->nama_menu,
+            'harga' => $menu->harga,
+            'gambar' => $menu->gambar,
+            'kategori' => $menu->kategori->nama_kategori ?? '',
+        ];
     }
 }

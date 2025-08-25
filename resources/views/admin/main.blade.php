@@ -16,34 +16,41 @@
 
   <style>
     html, body {
-        height: 100%;
-        margin: 0;
+      height: 100%;
+      margin: 0;
+      overflow-x: hidden; /* cegah horizontal scroll */
     }
 
     .wrapper {
-        display: flex;
-        flex-direction: column;
-        min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
     }
 
     .content-wrapper {
-        flex: 1;
-        display: flex;
-        flex-direction: column;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
     }
 
     .content {
-        flex: 1;
-        padding: 1rem;
-        overflow-x: auto; /* ✅ scroll horizontal jika tabel besar */
-        width: 100%;
+      flex: 1;
+      padding: 1rem;
+      width: 100%;
+      overflow-x: hidden;
     }
 
     .main-footer {
-        background: #f8f9fa;
-        padding: 10px 20px;
-        text-align: center;
-        width: 100%;
+      background: #f8f9fa;
+      padding: 10px 20px;
+      text-align: center;
+      width: 100%;
+    }
+
+    @media screen and (max-width: 768px) {
+      .content {
+        padding: 0.5rem;
+      }
     }
   </style>
 
@@ -67,8 +74,10 @@
     </section>
 
     {{-- Main Content --}}
-    <div class="content"> {{-- ✅ Ganti dari <section class="content"> ke <div class="content"> --}}
-      @yield('content')
+    <div class="content">
+      <div class="container-fluid">
+        @yield('content')
+      </div>
     </div>
   </div>
 

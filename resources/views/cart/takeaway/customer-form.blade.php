@@ -31,7 +31,7 @@
     </div>
 
     <div class="form-group">
-        <label for="waktu_pesanan">⏰ Waktu Ambil Pesanan</label>
+        <label for="waktu_pesanan">⏰ Waktu Pesanan</label>
         <input type="time" id="waktu_pesanan" name="waktu_pesanan" value="{{ old('waktu_pesanan') }}" required>
     </div>
 

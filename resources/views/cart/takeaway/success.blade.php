@@ -6,7 +6,7 @@
 @php
     use Carbon\Carbon;
 
-    $waktu = Carbon::parse($waktu_pesanan)->format('H');
+    $waktu = Carbon::parse($waktuPesanan)->format('H');
 
     if ($waktu >= 5 && $waktu < 12) {
         $sapaan = 'Halo, selamat pagi';
@@ -18,15 +18,15 @@
         $sapaan = 'Halo, selamat malam';
     }
 
-    $tanggal = Carbon::parse($waktu_pesanan)->locale('id')->isoFormat('D MMMM YYYY');
-    $jam = Carbon::parse($waktu_pesanan)->format('H:i');
+    $tanggal = Carbon::parse($waktuPesanan)->locale('id')->isoFormat('D MMMM YYYY');
+    $jam = Carbon::parse($waktuPesanan)->format('H:i');
 
-    $pesan = "$sapaan, saya $nama_pelanggan ingin konfirmasi pesanan takeaway :\n" .
-             "Nama : $nama_pelanggan\n" .
+    $pesan = "$sapaan, saya $namaPelanggan ingin konfirmasi pesanan takeaway :\n" .
+             "Nama : $namaPelanggan\n" .
              "Tanggal pesanan : $tanggal\n" .
              "Waktu ambil pesanan : $jam WIB\n" .
-             "No WhatsApp : $nomor_wa\n" .
-            "Metode pembayaran : QRIS\n\n" .
+             "No WhatsApp : $nomorWa\n" .
+             "Metode pembayaran : QRIS\n\n" .
              "Terimakasih";
 
     $urlWa = 'https://wa.me/6287710349513?text=' . urlencode($pesan);
@@ -45,5 +45,4 @@
         <i class="fab fa-whatsapp"></i> Konfirmasi via WhatsApp
     </a>
 </div>
-
 @endsection

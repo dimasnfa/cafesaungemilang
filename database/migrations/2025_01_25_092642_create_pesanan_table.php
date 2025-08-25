@@ -17,7 +17,15 @@ return new class extends Migration {
             $table->string('jenis_pesanan')->nullable(); // Otomatis diisi
             $table->date('tanggal_pesanan');
             $table->time('waktu_pesanan');
+            $table->enum('metode_pembayaran', ['cash', 'qris'])->nullable();
+              //  TAMBAHAN: Field untuk tracking Midtrans order ID
+            $table->string('midtrans_order_id')->nullable()->unique();
             $table->timestamps();
+            
+            //  TAMBAHAN: Index untuk performa
+            $table->index(['status_pesanan', 'metode_pembayaran']);
+            $table->index(['tanggal_pesanan', 'waktu_pesanan']);
+            $table->index('midtrans_order_id');
         });
     }
 

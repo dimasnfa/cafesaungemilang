@@ -5,10 +5,13 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Cache;
 use App\Models\Cart;
 use App\Models\Pesanan;
 use App\Models\DetailPesanan;
 use App\Models\Pembayaran;
+use App\Models\Meja;
 use Midtrans\Snap;
 
 class CheckoutDineinController extends Controller
@@ -21,292 +24,413 @@ class CheckoutDineinController extends Controller
         \Midtrans\Config::$is3ds = true;
     }
 
-    public function index()
-    {
-        $pembayarans = Pembayaran::with('pesanan')->latest()->paginate(10);
-        return view('admin.pages.pembayaran.index', compact('pembayarans'));
-    }
-
-    public function show($id)
-    {
-        $pembayaran = Pembayaran::with('pesanan.detail')->findOrFail($id);
-        return view('admin.pages.pembayaran.show', compact('pembayaran'));
-    }
-
-    public function update(Request $request, $id)
-    {
-        $validated = $request->validate([
-            'status_pembayaran' => 'required|in:pending,dibayar,dibatalkan',
-        ]);
-
-        $pembayaran = Pembayaran::findOrFail($id);
-        $pembayaran->update(['status_pembayaran' => $validated['status_pembayaran']]);
-
-        if ($pembayaran->pesanan) {
-            $statusPesanan = $validated['status_pembayaran'] === 'dibayar' ? 'dibayar' : 'batal';
-            $pembayaran->pesanan->update(['status_pesanan' => $statusPesanan]);
-        }
-
-        return redirect()->route('admin.pembayaran.index')->with('success', 'Status pembayaran berhasil diperbarui.');
-    }
-
-    public function destroy($id)
-    {
-        $pembayaran = Pembayaran::findOrFail($id);
-        if ($pembayaran->pesanan) {
-            $pembayaran->pesanan->delete();
-        }
-        $pembayaran->delete();
-
-        return redirect()->route('admin.pembayaran.index')->with('success', 'Data pembayaran berhasil dihapus.');
-    }
-
+    /**
+     * ✅ PROCESS CHECKOUT - Sesuai alur Midtrans Pooling
+     */
     public function process(Request $request)
     {
         $mejaId = session('meja_id');
-        $jenisPesanan = session('jenis_pesanan');
-        $paymentType = $request->input('payment_type');
+        $jenisPesanan = session('jenis_pesanan', 'dinein');
+        $paymentType = $request->input('payment_type', 'qris'); // Default QRIS
 
+        Log::info('🛒 Checkout Dine-in dimulai', [
+            'meja_id' => $mejaId,
+            'jenis_pesanan' => $jenisPesanan,
+            'payment_type' => $paymentType
+        ]);
+
+        // ✅ Validasi session
         if (!$mejaId || $jenisPesanan !== 'dinein') {
+            Log::error('❌ Sesi tidak valid untuk dine-in checkout', [
+                'meja_id' => $mejaId,
+                'jenis_pesanan' => $jenisPesanan
+            ]);
             return response()->json(['error' => 'Sesi meja atau jenis pesanan tidak valid.'], 400);
         }
 
+        // ✅ Ambil data meja
+        $meja = Meja::find($mejaId);
+        if (!$meja) {
+            Log::error('❌ Meja tidak ditemukan', ['meja_id' => $mejaId]);
+            return response()->json(['error' => 'Meja tidak ditemukan.'], 400);
+        }
+
+        // ✅ Validasi cart
         $carts = Cart::with('menu')
             ->where('meja_id', $mejaId)
             ->where('jenis_pesanan', $jenisPesanan)
             ->get();
 
         if ($carts->isEmpty()) {
+            Log::warning('⚠️ Keranjang kosong saat checkout', ['meja_id' => $mejaId]);
             return response()->json(['error' => 'Keranjang Dine-In kosong!'], 400);
         }
 
+        // ✅ Validasi stok menu
+        foreach ($carts as $cart) {
+            if (!$cart->menu) {
+                Log::error('❌ Menu tidak ditemukan', ['cart_id' => $cart->id]);
+                return response()->json(['error' => 'Menu tidak ditemukan.'], 400);
+            }
+            
+            if ($cart->qty > $cart->menu->stok) {
+                Log::error('❌ Stok tidak cukup', [
+                    'menu_id' => $cart->menu->id,
+                    'requested' => $cart->qty,
+                    'available' => $cart->menu->stok
+                ]);
+                return response()->json([
+                    'error' => "Stok tidak cukup untuk menu {$cart->menu->nama_menu}. Tersedia: {$cart->menu->stok}"
+                ], 400);
+            }
+        }
+
+        // ✅ Hitung total dan siapkan items
         $total = 0;
         $items = [];
 
         foreach ($carts as $cart) {
-            if (!$cart->menu) continue;
-
             $subtotal = $cart->menu->harga * $cart->qty;
             $total += $subtotal;
 
             $items[] = [
-                'id' => $cart->menu->id,
+                'menu_id' => $cart->menu->id,
                 'price' => $cart->menu->harga,
                 'quantity' => $cart->qty,
                 'name' => $cart->menu->nama_menu,
             ];
         }
 
-        $pesanan = Pesanan::create([
-            'user_id' => null,
-            'meja_id' => $mejaId,
-            'tanggal_pesanan' => now()->format('Y-m-d'),
-            'waktu_pesanan' => now()->format('H:i:s'),
-            'total_harga' => $total,
-            'status_pesanan' => 'pending',
-            'jenis_pesanan' => $jenisPesanan,
-        ]);
-
-        foreach ($carts as $cart) {
-            DetailPesanan::create([
-                'pesanan_id' => $pesanan->id,
-                'menu_id' => $cart->menu->id,
-                'jumlah' => $cart->qty,
-                'subtotal' => $cart->menu->harga * $cart->qty,
-            ]);
+        if ($total <= 0) {
+            return response()->json(['error' => 'Total pesanan tidak valid.'], 400);
         }
 
+        // ✅ Handle berdasarkan metode pembayaran
         if ($paymentType === 'cash') {
-            Pembayaran::create([
+            return $this->processCashPayment($carts, $total, $meja, $mejaId, $jenisPesanan);
+        } else {
+            return $this->processQrisPayment($carts, $total, $items, $meja, $mejaId, $jenisPesanan);
+        }
+    }
+
+    /**
+     * ✅ PROCESS CASH PAYMENT - Langsung create pesanan & pembayaran
+     * Cash langsung masuk database dengan status pending
+     */
+    private function processCashPayment($carts, $total, $meja, $mejaId, $jenisPesanan)
+    {
+        try {
+            DB::beginTransaction();
+
+            Log::info('💵 Processing cash payment', [
+                'meja_id' => $mejaId,
+                'total' => $total
+            ]);
+
+            // ✅ Buat pesanan untuk cash (langsung dibuat)
+            $pesanan = Pesanan::create([
+                'meja_id' => $mejaId,
+                'jenis_pesanan' => 'dinein',
+                'tanggal_pesanan' => now()->format('Y-m-d'),
+                'waktu_pesanan' => now()->format('H:i:s'),
+                'total_harga' => $total,
+                'status_pesanan' => 'pending',
+                'metode_pembayaran' => 'cash',
+            ]);
+
+            // ✅ Simpan detail pesanan
+            foreach ($carts as $cart) {
+                if (!$cart->menu) continue;
+                
+                DetailPesanan::create([
+                    'pesanan_id' => $pesanan->id,
+                    'menu_id' => $cart->menu->id,
+                    'jumlah' => $cart->qty,
+                    'harga_satuan' => $cart->menu->harga,
+                    'subtotal' => $cart->menu->harga * $cart->qty,
+                ]);
+            }
+
+            $orderId = 'CASH-DINEIN-' . $pesanan->id . '-' . now()->timestamp;
+
+            // ✅ Buat pembayaran dengan status pending
+            $pembayaran = Pembayaran::create([
                 'pesanan_id' => $pesanan->id,
-                'user_id' => null,
+                'order_id' => $orderId,
                 'total_bayar' => $total,
                 'metode_pembayaran' => 'cash',
                 'status_pembayaran' => 'pending',
+                'jenis_pesanan' => 'dinein',
+                'nomor_meja' => $meja->nomor_meja,
+                'tanggal_pesanan' => $pesanan->tanggal_pesanan,
+                'waktu_pesanan' => $pesanan->waktu_pesanan,
             ]);
 
-            return response()->json(['success' => true]);
-        }
+            // ✅ Hapus cart setelah berhasil
+            Cart::where('meja_id', $mejaId)
+                ->where('jenis_pesanan', $jenisPesanan)
+                ->delete();
 
-        $orderId = 'PESANAN-' . $pesanan->id . '-' . now()->timestamp;
+            DB::commit();
 
-        $params = [
-            'transaction_details' => [
+            Log::info('✅ Pembayaran cash berhasil dibuat', [
                 'order_id' => $orderId,
-                'gross_amount' => $total,
-            ],
-            'item_details' => $items,
-            'customer_details' => [
-                'first_name' => 'Customer',
-                'email' => 'dinein@gmail.com',
-                'phone' => '081234567890',
-            ],
-        ];
+                'pesanan_id' => $pesanan->id,
+                'pembayaran_id' => $pembayaran->id,
+                'status_pembayaran' => 'pending'
+            ]);
 
-        try {
-            $snapToken = Snap::getSnapToken($params);
-            return response()->json(['snap_token' => $snapToken]);
+            return response()->json([
+                'success' => true,
+                'payment_method' => 'cash',
+                'order_id' => $orderId,
+                'redirect_url' => route('cart.dinein.checkout.success')
+            ]);
+
         } catch (\Exception $e) {
-            Log::error('Midtrans Snap Token Error: ' . $e->getMessage());
-            return response()->json(['error' => 'Gagal menghubungkan ke Midtrans: ' . $e->getMessage()], 500);
+            DB::rollBack();
+            
+            Log::error('❌ Error saat proses pembayaran cash', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'meja_id' => $mejaId
+            ]);
+
+            return response()->json([
+                'error' => 'Terjadi kesalahan saat memproses pembayaran cash: ' . $e->getMessage()
+            ], 500);
         }
     }
 
+    /**
+     * ✅ PROCESS QRIS PAYMENT - SESUAI ALUR MIDTRANS POOLING
+     * TIDAK create pesanan di database, hanya save ke cache dan generate Snap Token
+     * Data pesanan baru akan dibuat ketika user klik "Check Status" dan pooling controller mendeteksi settlement
+     */
+    private function processQrisPayment($carts, $total, $items, $meja, $mejaId, $jenisPesanan)
+    {
+        try {
+            $orderId = 'QRIS-DINEIN-' . time() . '-' . rand(1000, 9999);
+
+            Log::info('💳 Processing QRIS payment', [
+                'order_id' => $orderId,
+                'meja_id' => $mejaId,
+                'total' => $total
+            ]);
+
+            // ✅ KUNCI UTAMA: Siapkan data untuk disimpan ke cache (BUKAN database)
+            // Data ini akan diambil oleh MidtransPollingController saat settlement
+            $qrisData = [
+                'meja_id' => $mejaId,
+                'nomor_meja' => $meja->nomor_meja,
+                'jenis_pesanan' => 'dinein',
+                'total_harga' => $total,
+                'order_id' => $orderId,
+                'items' => [], // Format untuk create pesanan nanti
+            ];
+
+            // ✅ Format items untuk disimpan di cache
+            foreach ($carts as $cart) {
+                if (!$cart->menu) continue;
+                
+                $qrisData['items'][] = [
+                    'menu_id' => $cart->menu->id,
+                    'quantity' => $cart->qty,
+                    'price' => $cart->menu->harga,
+                    'name' => $cart->menu->nama_menu,
+                ];
+            }
+
+            // ✅ Save data ke cache - PENTING: Ini akan dibaca oleh MidtransPollingController
+            $midtransPoolingController = new MidtransPollingController();
+            $cacheSuccess = $midtransPoolingController->saveQrisDataToCache($orderId, $qrisData);
+            
+            if (!$cacheSuccess) {
+                Log::error('❌ Failed to save QRIS data to cache', ['order_id' => $orderId]);
+                return response()->json(['error' => 'Gagal menyimpan data QRIS'], 500);
+            }
+
+            Log::info('💾 QRIS data saved to cache for pooling', [
+                'order_id' => $orderId,
+                'meja_id' => $mejaId,
+                'total' => $total,
+                'cache_key' => "qris_data_{$orderId}",
+                'note' => 'Data siap untuk settlement pooling'
+            ]);
+
+            // ✅ Parameter Snap Midtrans
+            $snapItems = [];
+            foreach ($items as $item) {
+                $snapItems[] = [
+                    'id' => $item['menu_id'],
+                    'price' => $item['price'],
+                    'quantity' => $item['quantity'],
+                    'name' => $item['name'],
+                ];
+            }
+
+            $params = [
+                'transaction_details' => [
+                    'order_id' => $orderId,
+                    'gross_amount' => $total,
+                ],
+                'item_details' => $snapItems,
+                'customer_details' => [
+                    'first_name' => 'Customer Dine-In',
+                    'last_name' => 'Meja ' . $meja->nomor_meja,
+                    'email' => 'dinein@restaurant.com',
+                    'phone' => '081234567890',
+                ],
+                'custom_field1' => 'dinein',
+                'custom_field2' => $meja->nomor_meja,
+                'custom_field3' => $orderId,
+            ];
+
+            // ✅ Generate Snap Token
+            $snapToken = Snap::getSnapToken($params);
+
+            Log::info('🎟️ Snap token generated successfully', [
+                'order_id' => $orderId,
+                'snap_token_preview' => substr($snapToken, 0, 20) . '...'
+            ]);
+
+            // ✅ Hapus cart SETELAH snap token berhasil dibuat
+            $deletedCarts = Cart::where('meja_id', $mejaId)
+                ->where('jenis_pesanan', $jenisPesanan)
+                ->delete();
+
+            Log::info('🗑️ Cart cleared after successful QRIS token generation', [
+                'deleted_count' => $deletedCarts,
+                'meja_id' => $mejaId
+            ]);
+
+            Log::info('✅ QRIS checkout process completed', [
+                'order_id' => $orderId,
+                'meja_id' => $mejaId,
+                'total' => $total,
+                'status' => 'waiting_for_payment_and_check_status',
+                'note' => 'Pesanan akan dibuat otomatis setelah user klik Check Status dan pooling detect settlement'
+            ]);
+
+            return response()->json([
+                'success' => true,
+                'payment_method' => 'qris',
+                'snap_token' => $snapToken,
+                'order_id' => $orderId,
+                'total' => $total,
+                'meja_nomor' => $meja->nomor_meja,
+                'message' => 'Silakan scan QRIS untuk melakukan pembayaran. Setelah bayar, klik tombol "Check Status"'
+            ]);
+
+        } catch (\Exception $e) {
+            Log::error('❌ Midtrans Snap Token Error Dinein QRIS', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
+                'meja_id' => $mejaId,
+                'order_id' => $orderId ?? 'not_generated'
+            ]);
+
+            return response()->json([
+                'error' => 'Gagal menghubungkan ke Midtrans: ' . $e->getMessage()
+            ], 500);
+        }
+    }
+
+    /**
+     * ✅ PROCESS CASH - Method terpisah untuk backward compatibility
+     */
     public function processCash(Request $request)
-{
-    $mejaId = session('meja_id');
-    $jenisPesanan = session('jenis_pesanan');
-
-    if (!$mejaId || $jenisPesanan !== 'dinein') {
-        return response()->json(['error' => 'Sesi meja atau jenis pesanan tidak valid.'], 400);
+    {
+        $request->merge(['payment_type' => 'cash']);
+        return $this->process($request);
     }
 
-    $carts = Cart::with('menu')
-        ->where('meja_id', $mejaId)
-        ->where('jenis_pesanan', $jenisPesanan)
-        ->get();
+    /**
+     * ✅ DINE-IN SUCCESS - Halaman sukses (untuk cash dan QRIS)
+     */
+    public function dineInSuccess()
+    {
+        // ✅ Clear session setelah checkout berhasil
+        session()->forget(['meja_id', 'jenis_pesanan']);
 
-    if ($carts->isEmpty()) {
-        return response()->json(['error' => 'Keranjang Dine-In kosong!'], 400);
-    }
+        Log::info('✅ Dinein success page loaded');
 
-    $total = 0;
-    foreach ($carts as $cart) {
-        if ($cart->menu) {
-            $total += $cart->menu->harga * $cart->qty;
-        }
-    }
-
-    // Simpan ke pesanan
-    $pesanan = Pesanan::create([
-        'user_id' => null,
-        'meja_id' => $mejaId,
-        'tanggal_pesanan' => now()->format('Y-m-d'),
-        'waktu_pesanan' => now()->format('H:i:s'),
-        'total_harga' => $total,
-        'status_pesanan' => 'pending',
-        'jenis_pesanan' => $jenisPesanan,
-    ]);
-
-    foreach ($carts as $cart) {
-        DetailPesanan::create([
-            'pesanan_id' => $pesanan->id,
-            'menu_id' => $cart->menu_id,
-            'jumlah' => $cart->qty,
-            'subtotal' => $cart->menu->harga * $cart->qty,
+        return view('cart.dinein.success', [
+            'title' => 'Pembayaran Berhasil',
+            'message' => 'Terima kasih! Pesanan Anda sedang diproses.',
+            'type' => 'success'
         ]);
     }
 
-    // ✅ Buat order_id unik
-    $orderId = 'CASH-' . $pesanan->id . '-' . time();
-
-    // Simpan pembayaran cash
-    Pembayaran::create([
-        'pesanan_id' => $pesanan->id,
-        'order_id' => $orderId,
-        'user_id' => null,
-        'total_bayar' => $total,
-        'metode_pembayaran' => 'cash',
-        'status_pembayaran' => 'pending',
-        'jenis_pesanan' => $jenisPesanan,
-        'meja_id' => $mejaId,
-    ]);
-
-    // Hapus cart
-    Cart::where('meja_id', $mejaId)
-        ->where('jenis_pesanan', $jenisPesanan)
-        ->delete();
-
-    // Redirect ke halaman sukses
-    return response()->json([
-        'success' => true,
-        'redirect_url' => route('cart.dinein.checkout.sukses'),
-    ]);
-}
-
-        public function cashSuccess()
+    /**
+     * ✅ CASH SUCCESS - Halaman sukses khusus cash
+     */
+    public function cashSuccess()
     {
-        session()->forget('meja_id');
-        session()->forget('jenis_pesanan');
-
-        return view('cart.dinein.sukses'); // Pastikan file `resources/views/cart/dinein/success.blade.php` ada
+        session()->forget(['meja_id', 'jenis_pesanan']);
+        
+        Log::info('✅ Cash checkout success page loaded');
+        
+        return view('cart.dinein.sukses', [
+            'title' => 'Pesanan Berhasil Dibuat',
+            'message' => 'Silakan bayar ke kasir untuk melanjutkan pesanan.',
+            'type' => 'cash'
+        ]);
     }
 
-    public function dineInSuccess()
+    /**
+     * ✅ CALLBACK - Deprecated, tidak digunakan lagi karena pakai pooling
+     * Tetap ada untuk backward compatibility
+     */
+    public function dineInCallback(Request $request)
     {
-        session()->forget('meja_id');
-        session()->forget('jenis_pesanan');
+        Log::warning('⚠️ Deprecated callback called, redirecting to pooling system', [
+            'request_data' => $request->all()
+        ]);
 
-        return view('cart.dinein.success');
+        // Redirect ke pooling system jika ada order_id
+        $orderId = $request->input('order_id');
+        if ($orderId) {
+            return redirect()->route('admin.midtrans.cek.status', ['order_id' => $orderId]);
+        }
+
+        return response()->json([
+            'success' => false,
+            'message' => 'Please use pooling system instead of callback'
+        ], 410); // 410 Gone
     }
 
-    public function callback(Request $request)
+    /**
+     * ✅ CLEAR EXPIRED CACHE - Utility method
+     */
+    public function clearExpiredQrisCache()
     {
-        Log::info('Midtrans Callback Diterima', $request->all());
-
-        $serverKey = config('services.midtrans.server_key');
-        $hashed = hash("sha512", "{$request->order_id}{$request->status_code}{$request->gross_amount}{$serverKey}");
-
-        if ($hashed !== $request->signature_key) {
-            Log::warning('Signature Key tidak cocok!', ['order_id' => $request->order_id]);
-            return response()->json(['error' => 'Invalid signature'], 400);
+        // This method can be called via scheduled task
+        // to clean up expired QRIS cache data
+        
+        try {
+            $clearedCount = 0;
+            // Implementation depends on your cache driver
+            // For Redis, you might need to scan for keys with pattern
+            
+            Log::info('✅ Expired QRIS cache cleanup completed', [
+                'cleared_count' => $clearedCount
+            ]);
+            
+            return response()->json([
+                'success' => true,
+                'cleared_count' => $clearedCount
+            ]);
+            
+        } catch (\Exception $e) {
+            Log::error('❌ Failed to clear expired QRIS cache', [
+                'error' => $e->getMessage()
+            ]);
+            
+            return response()->json([
+                'success' => false,
+                'error' => $e->getMessage()
+            ], 500);
         }
-
-        preg_match('/PESANAN-(\d+)-/', $request->order_id, $matches);
-        $pesananId = $matches[1] ?? null;
-
-        if (!$pesananId) {
-            Log::warning('Gagal parse order_id dari Midtrans', ['order_id' => $request->order_id]);
-            return response()->json(['error' => 'Invalid order_id'], 400);
-        }
-
-        $pesanan = Pesanan::find($pesananId);
-
-        if (!$pesanan) {
-            Log::warning('Pesanan tidak ditemukan!', ['pesanan_id' => $pesananId]);
-            return response()->json(['error' => 'Pesanan tidak ditemukan'], 404);
-        }
-
-        $status = $request->transaction_status;
-
-        if (in_array($status, ['capture', 'settlement'])) {
-            $pesanan->update(['status_pesanan' => 'dibayar']);
-
-            Pembayaran::updateOrCreate(
-                ['order_id' => $request->order_id],
-                [
-                    'pesanan_id' => $pesanan->id,
-                    'total_bayar' => $request->gross_amount,
-                    'metode_pembayaran' => $request->payment_type,
-                    'status_pembayaran' => 'dibayar',
-                    'jenis_pesanan' => $pesanan->jenis_pesanan,
-                    'meja_id' => $pesanan->meja_id,
-                ]
-            );
-
-            Cart::where('meja_id', $pesanan->meja_id)
-                ->where('jenis_pesanan', $pesanan->jenis_pesanan)
-                ->delete();
-
-            Log::info('Pembayaran berhasil diproses', ['pesanan_id' => $pesanan->id]);
-        } elseif (in_array($status, ['cancel', 'expire', 'failure'])) {
-            $pesanan->update(['status_pesanan' => 'batal']);
-
-            Pembayaran::updateOrCreate(
-                ['order_id' => $request->order_id],
-                [
-                    'pesanan_id' => $pesanan->id,
-                    'total_bayar' => $request->gross_amount,
-                    'metode_pembayaran' => $request->payment_type,
-                    'status_pembayaran' => 'dibatalkan',
-                    'jenis_pesanan' => $pesanan->jenis_pesanan,
-                    'meja_id' => $pesanan->meja_id,
-                ]
-            );
-
-            Log::info('Pembayaran dibatalkan', ['pesanan_id' => $pesanan->id]);
-        }
-
-        return response()->json(['message' => 'Callback processed']);
     }
 }

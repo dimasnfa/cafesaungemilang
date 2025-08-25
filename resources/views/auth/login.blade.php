@@ -135,7 +135,7 @@
         <a href="{{ route('forgot-password')  }}">Lupa Password ?</a>
       </p>
       <p class="mb-0">
-        <a href="{{ route('register') }}" class="text-center">Buat Akun Baru</a>
+        {{-- <a href="{{ route('register') }}" class="text-center">Buat Akun Baru</a> --}}
       </p>
     </div>
   </div>

@@ -1,0 +1,793 @@
+/* ============================================
+   ✅ MIDTRANSPOOLING NOTIFICATION STYLING
+   Enhanced untuk QRIS & Cash payment notifications
+============================================ */
+
+/* ===== Base Notification Popup - Sesuai Gambar ===== */
+.custom-notification-popup,
+.midtrans-pooling-popup {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif !important;
+    border-radius: 20px !important;
+    box-shadow: 0 15px 35px rgba(0,0,0,0.3) !important;
+    background: white !important;
+    border: 3px solid #28a745 !important;
+    max-width: 450px !important;
+}
+
+.midtrans-pooling-popup {
+    border: 3px solid #17a2b8 !important; /* Biru untuk MidtransPooling */
+}
+
+.notification-title {
+    color: #2c3e50 !important;
+    font-weight: 800 !important;
+    font-size: 20px !important;
+    margin-bottom: 20px !important;
+    text-shadow: 1px 1px 3px rgba(0,0,0,0.1) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 8px !important;
+}
+
+.notification-content {
+    text-align: left !important;
+    padding: 0 10px !important;
+}
+
+.notification-popup-content {
+    max-width: 100%;
+    margin: 0 auto;
+}
+
+/* ===== Order Details Box - EXACT sesuai gambar ===== */
+.order-details-box {
+    background: #f5f5f5;
+    border: 3px solid #333;
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 16px;
+    font-family: Arial, sans-serif;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    position: relative;
+}
+
+/* ===== QRIS vs CASH Styling ===== */
+.order-details-box.qris-payment {
+    border-color: #28a745 !important;
+    background: linear-gradient(135deg, #f8fff9, #f1f8f2) !important;
+}
+
+.order-details-box.qris-payment::before {
+    content: "📱 QRIS LUNAS";
+    position: absolute;
+    top: -12px;
+    right: 8px;
+    background: #28a745;
+    color: white;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.order-details-box.cash-payment {
+    border-color: #ffc107 !important;
+    background: linear-gradient(135deg, #fffdf5, #fff8e1) !important;
+}
+
+.order-details-box.cash-payment::before {
+    content: "💵 CASH PENDING";
+    position: absolute;
+    top: -12px;
+    right: 8px;
+    background: #ffc107;
+    color: #212529;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.detail-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    min-height: 22px;
+}
+
+.detail-row:last-child {
+    margin-bottom: 0;
+}
+
+.detail-row strong {
+    color: #333;
+    min-width: 130px;
+    font-weight: 700;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+}
+
+.detail-row span {
+    color: #333;
+    font-weight: 600;
+    background: transparent;
+    padding: 2px 4px;
+    border-radius: 4px;
+    text-align: right;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+/* ===== Payment Status Badges dalam Detail Row ===== */
+.detail-row .badge {
+    font-size: 11px !important;
+    padding: 4px 8px !important;
+    border-radius: 12px !important;
+    font-weight: 700 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.5px !important;
+    min-width: 60px !important;
+    text-align: center !important;
+    border: 1px solid rgba(255,255,255,0.3) !important;
+}
+
+.detail-row .badge-success {
+    background: linear-gradient(135deg, #28a745, #20c997) !important;
+    color: white !important;
+    animation: pulse-success-small 2s infinite ease-in-out !important;
+}
+
+.detail-row .badge-warning {
+    background: linear-gradient(135deg, #ffc107, #ffb300) !important;
+    color: #212529 !important;
+    animation: pulse-warning-small 2s infinite ease-in-out !important;
+}
+
+.detail-row .badge-info {
+    background: linear-gradient(135deg, #17a2b8, #138496) !important;
+    color: white !important;
+}
+
+/* ===== Total Amount Styling - EXACT sesuai gambar ===== */
+.total-amount {
+    background: #28a745;
+    color: white;
+    padding: 12px 16px;
+    border-radius: 25px;
+    text-align: center;
+    font-size: 16px;
+    font-weight: 700;
+    box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    position: relative;
+    overflow: hidden;
+}
+
+/* ===== QRIS vs CASH Total Amount Variants ===== */
+.total-amount.qris-total {
+    background: linear-gradient(135deg, #28a745, #20c997);
+    animation: pulse-total-success 3s infinite ease-in-out;
+}
+
+.total-amount.qris-total::before {
+    content: "✅ PAID";
+    position: absolute;
+    top: -20px;
+    right: -20px;
+    background: rgba(255,255,255,0.2);
+    color: rgba(255,255,255,0.8);
+    padding: 4px 8px;
+    border-radius: 20px;
+    font-size: 8px;
+    transform: rotate(15deg);
+}
+
+.total-amount.cash-total {
+    background: linear-gradient(135deg, #ffc107, #ffb300);
+    color: #212529;
+    animation: pulse-total-warning 3s infinite ease-in-out;
+}
+
+.total-amount.cash-total::before {
+    content: "⏳ PENDING";
+    position: absolute;
+    top: -20px;
+    right: -20px;
+    background: rgba(33, 37, 41, 0.1);
+    color: rgba(33, 37, 41, 0.8);
+    padding: 4px 8px;
+    border-radius: 20px;
+    font-size: 8px;
+    transform: rotate(15deg);
+}
+
+.total-amount strong {
+    font-weight: 700;
+    color: inherit;
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
+}
+
+/* ===== SweetAlert2 Custom Styling untuk MidtransPooling ===== */
+.swal2-popup.custom-notification-popup {
+    border-radius: 20px !important;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3) !important;
+    border: 3px solid #28a745 !important;
+    background: white !important;
+    padding: 2rem !important;
+}
+
+.swal2-popup.midtrans-pooling-popup {
+    border-color: #17a2b8 !important;
+}
+
+.swal2-popup.custom-notification-popup .swal2-title {
+    color: #2c3e50 !important;
+    font-weight: 800 !important;
+    font-size: 22px !important;
+    margin-bottom: 1.5rem !important;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.1) !important;
+}
+
+.swal2-popup.custom-notification-popup .swal2-html-container {
+    color: #34495e !important;
+    font-size: 14px !important;
+    line-height: 1.6 !important;
+    margin: 0 !important;
+}
+
+.swal2-popup.custom-notification-popup .swal2-actions {
+    margin-top: 2rem !important;
+    gap: 1rem !important;
+}
+
+.swal2-popup.custom-notification-popup .swal2-confirm {
+    background: linear-gradient(135deg, #28a745, #20c997) !important;
+    border: none !important;
+    border-radius: 25px !important;
+    padding: 12px 30px !important;
+    font-weight: 700 !important;
+    font-size: 14px !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.5px !important;
+    box-shadow: 0 4px 15px rgba(40, 167, 69, 0.4) !important;
+    transition: all 0.3s ease !important;
+}
+
+.swal2-popup.custom-notification-popup .swal2-confirm:hover {
+    transform: translateY(-2px) !important;
+    box-shadow: 0 6px 20px rgba(40, 167, 69, 0.6) !important;
+}
+
+.swal2-popup.custom-notification-popup .swal2-cancel {
+    background: linear-gradient(135deg, #6c757d, #5a6268) !important;
+    border: none !important;
+    border-radius: 25px !important;
+    padding: 12px 30px !important;
+    font-weight: 700 !important;
+    font-size: 14px !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.5px !important;
+    box-shadow: 0 4px 15px rgba(108, 117, 125, 0.4) !important;
+    transition: all 0.3s ease !important;
+}
+
+.swal2-popup.custom-notification-popup .swal2-cancel:hover {
+    transform: translateY(-2px) !important;
+    box-shadow: 0 6px 20px rgba(108, 117, 125, 0.6) !important;
+}
+
+/* Timer progress bar */
+.swal2-timer-progress-bar {
+    background: linear-gradient(90deg, #28a745, #17a2b8) !important;
+    height: 6px !important;
+}
+
+/* ===== Icon Styling - Checkmark sesuai gambar ===== */
+.swal2-icon.swal2-success {
+    border-color: #28a745 !important;
+    color: #28a745 !important;
+}
+
+.swal2-icon.swal2-success .swal2-success-ring {
+    border-color: rgba(40, 167, 69, 0.3) !important;
+}
+
+.swal2-icon.swal2-success .swal2-success-fix {
+    background-color: white !important;
+}
+
+.swal2-icon.swal2-success [class^='swal2-success-line'] {
+    background-color: #28a745 !important;
+}
+
+/* ===== NOTIFICATION STATUS BADGE - Enhanced untuk MidtransPooling ===== */
+.notif-status {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: 8px 0;
+}
+
+.notif-status .badge {
+    font-size: 11px;
+    padding: 8px 16px;
+    border-radius: 25px;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    box-shadow: 0 3px 12px rgba(0,0,0,0.15);
+    position: relative;
+    overflow: hidden;
+    min-width: 180px;
+    text-align: center;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+}
+
+/* ===== MidtransPooling Status Variants ===== */
+.notif-status .badge-success {
+    background: linear-gradient(135deg, #28a745 0%, #20c997 50%, #17a2b8 100%);
+    color: white;
+    animation: pulse-success-pooling 2.5s infinite ease-in-out;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+}
+
+.notif-status .badge-success::before {
+    content: "🔄";
+    margin-right: 4px;
+}
+
+.notif-status .badge-danger {
+    background: linear-gradient(135deg, #dc3545 0%, #e74c3c 50%, #c0392b 100%);
+    color: white;
+    animation: pulse-error-pooling 1.2s infinite ease-in-out;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+}
+
+.notif-status .badge-danger::before {
+    content: "❌";
+    margin-right: 4px;
+}
+
+.notif-status .badge-warning {
+    background: linear-gradient(135deg, #ffc107 0%, #ffb300 50%, #ff8f00 100%);
+    color: #212529;
+    animation: pulse-warning-pooling 1.8s infinite ease-in-out;
+    border: 2px solid rgba(255, 255, 255, 0.4);
+    text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
+}
+
+.notif-status .badge-warning::before {
+    content: "🔔";
+    margin-right: 4px;
+}
+
+.notif-status .badge-info {
+    background: linear-gradient(135deg, #17a2b8 0%, #138496 50%, #0c5460 100%);
+    color: white;
+    animation: pulse-info-pooling 2.2s infinite ease-in-out;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+}
+
+.notif-status .badge-info::before {
+    content: "🔍";
+    margin-right: 4px;
+}
+
+.notif-status .badge-primary {
+    background: linear-gradient(135deg, #007bff 0%, #0056b3 50%, #004085 100%);
+    color: white;
+    animation: pulse-primary-pooling 1.5s infinite ease-in-out;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+}
+
+.notif-status .badge-secondary {
+    background: linear-gradient(135deg, #6c757d 0%, #5a6268 50%, #495057 100%);
+    color: white;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+}
+
+/* ===== ENHANCED PULSE ANIMATIONS untuk MidtransPooling ===== */
+@keyframes pulse-success-pooling {
+    0%, 100% { 
+        transform: scale(1) rotate(0deg);
+        box-shadow: 0 3px 12px rgba(40, 167, 69, 0.3);
+        filter: brightness(1);
+    }
+    25% {
+        transform: scale(1.03) rotate(0.5deg);
+        box-shadow: 0 5px 20px rgba(40, 167, 69, 0.5);
+        filter: brightness(1.1);
+    }
+    50% { 
+        transform: scale(1.06) rotate(0deg);
+        box-shadow: 0 8px 25px rgba(40, 167, 69, 0.7);
+        filter: brightness(1.2);
+    }
+    75% {
+        transform: scale(1.03) rotate(-0.5deg);
+        box-shadow: 0 5px 20px rgba(40, 167, 69, 0.5);
+        filter: brightness(1.1);
+    }
+}
+
+@keyframes pulse-error-pooling {
+    0%, 100% { 
+        transform: scale(1);
+        box-shadow: 0 3px 12px rgba(220, 53, 69, 0.3);
+        filter: brightness(1);
+    }
+    50% { 
+        transform: scale(1.08);
+        box-shadow: 0 8px 25px rgba(220, 53, 69, 0.8);
+        filter: brightness(1.3);
+    }
+}
+
+@keyframes pulse-warning-pooling {
+    0%, 100% { 
+        transform: scale(1);
+        box-shadow: 0 3px 12px rgba(255, 193, 7, 0.4);
+        filter: brightness(1);
+    }
+    33% {
+        transform: scale(1.04);
+        box-shadow: 0 6px 18px rgba(255, 193, 7, 0.6);
+        filter: brightness(1.15);
+    }
+    66% { 
+        transform: scale(1.07);
+        box-shadow: 0 8px 22px rgba(255, 193, 7, 0.8);
+        filter: brightness(1.25);
+    }
+}
+
+@keyframes pulse-info-pooling {
+    0%, 100% { 
+        transform: scale(1);
+        box-shadow: 0 3px 12px rgba(23, 162, 184, 0.3);
+    }
+    50% { 
+        transform: scale(1.05);
+        box-shadow: 0 6px 18px rgba(23, 162, 184, 0.6);
+    }
+}
+
+@keyframes pulse-primary-pooling {
+    0%, 100% { 
+        transform: scale(1);
+        box-shadow: 0 3px 12px rgba(0, 123, 255, 0.3);
+    }
+    50% { 
+        transform: scale(1.06);
+        box-shadow: 0 6px 18px rgba(0, 123, 255, 0.7);
+    }
+}
+
+/* ===== Small Badge Animations ===== */
+@keyframes pulse-success-small {
+    0%, 100% { 
+        transform: scale(1);
+        box-shadow: 0 2px 8px rgba(40, 167, 69, 0.2);
+    }
+    50% { 
+        transform: scale(1.05);
+        box-shadow: 0 4px 12px rgba(40, 167, 69, 0.4);
+    }
+}
+
+@keyframes pulse-warning-small {
+    0%, 100% { 
+        transform: scale(1);
+        box-shadow: 0 2px 8px rgba(255, 193, 7, 0.2);
+    }
+    50% { 
+        transform: scale(1.05);
+        box-shadow: 0 4px 12px rgba(255, 193, 7, 0.4);
+    }
+}
+
+/* ===== Total Amount Animations ===== */
+@keyframes pulse-total-success {
+    0%, 100% { 
+        transform: scale(1);
+        box-shadow: 0 4px 12px rgba(40, 167, 69, 0.3);
+    }
+    50% { 
+        transform: scale(1.02);
+        box-shadow: 0 6px 18px rgba(40, 167, 69, 0.5);
+    }
+}
+
+@keyframes pulse-total-warning {
+    0%, 100% { 
+        transform: scale(1);
+        box-shadow: 0 4px 12px rgba(255, 193, 7, 0.3);
+    }
+    50% { 
+        transform: scale(1.02);
+        box-shadow: 0 6px 18px rgba(255, 193, 7, 0.5);
+    }
+}
+
+/* ===== CONNECTION STATUS INDICATOR ===== */
+.connection-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    border-radius: 25px;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    transition: all 0.4s ease;
+    box-shadow: 0 3px 12px rgba(0,0,0,0.15);
+}
+
+.connection-status.online {
+    background: linear-gradient(135deg, #d4edda, #c3e6cb);
+    color: #155724;
+    border: 2px solid #c3e6cb;
+}
+
+.connection-status.online::before {
+    content: "🟢";
+    animation: pulse 2s infinite;
+}
+
+.connection-status.offline {
+    background: linear-gradient(135deg, #f8d7da, #f1b0b7);
+    color: #721c24;
+    border: 2px solid #f1b0b7;
+}
+
+.connection-status.offline::before {
+    content: "🔴";
+    animation: pulse 1s infinite;
+}
+
+/* ===== NOTIFICATION CONTROLS ===== */
+.notification-controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.notification-controls button {
+    border-radius: 20px;
+    font-weight: 600;
+    font-size: 11px;
+    padding: 8px 16px;
+    transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+    box-shadow: 0 3px 10px rgba(0,0,0,0.15);
+    border: 2px solid transparent;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.notification-controls button:hover {
+    transform: translateY(-3px) scale(1.05);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.25);
+    background: linear-gradient(135deg, #6c757d, #495057);
+    color: white;
+    border-color: rgba(255, 255, 255, 0.3);
+}
+
+.notification-controls .btn-success {
+    background: linear-gradient(135deg, #28a745, #20c997);
+    border-color: #20c997;
+}
+
+.notification-controls .btn-danger {
+    background: linear-gradient(135deg, #dc3545, #c82333);
+    border-color: #c82333;
+}
+
+.notification-controls .btn-info {
+    background: linear-gradient(135deg, #17a2b8, #138496);
+    border-color: #138496;
+}
+
+/* ===== AUTO-REFRESH INDICATOR ===== */
+#autoRefreshIndicator {
+    border-left: 6px solid #28a745;
+    background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 50%, #a3d9a5 100%);
+    border-radius: 15px;
+    box-shadow: 0 6px 20px rgba(40, 167, 69, 0.25);
+    margin-bottom: 20px;
+    border: 2px solid rgba(40, 167, 69, 0.2);
+    position: relative;
+    overflow: hidden;
+}
+
+#autoRefreshIndicator::before {
+    content: "🔄 MidtransPooling Active";
+    position: absolute;
+    top: 8px;
+    right: 16px;
+    background: rgba(40, 167, 69, 0.1);
+    color: #155724;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    animation: slide-in-right 0.5s ease-out;
+}
+
+@keyframes slide-in-right {
+    from {
+        opacity: 0;
+        transform: translateX(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+/* ===== TABLE ENHANCEMENTS untuk MidtransPooling ===== */
+.new-pesanan {
+    animation: newRowHighlightPooling 4s ease-in-out;
+    position: relative;
+}
+
+@keyframes newRowHighlightPooling {
+    0% {
+        background: linear-gradient(135deg, #d4edda, #c3e6cb);
+        transform: scale(1.02);
+        box-shadow: 0 6px 20px rgba(40, 167, 69, 0.4);
+    }
+    25% {
+        background: linear-gradient(135deg, #cce7f0, #b8daff);
+        transform: scale(1.015);
+        box-shadow: 0 4px 15px rgba(23, 162, 184, 0.3);
+    }
+    50% {
+        background: linear-gradient(135deg, #fff3cd, #ffeaa7);
+        transform: scale(1.01);
+        box-shadow: 0 3px 12px rgba(255, 193, 7, 0.3);
+    }
+    75% {
+        background: linear-gradient(135deg, #e2f3ff, #cce7ff);
+        transform: scale(1.005);
+        box-shadow: 0 2px 8px rgba(0, 123, 255, 0.2);
+    }
+    100% {
+        background: transparent;
+        transform: scale(1);
+        box-shadow: none;
+    }
+}
+
+/* ===== QRIS vs CASH Row Styling ===== */
+tr[data-payment-method="qris"] {
+    border-left: 4px solid #28a745;
+    background: linear-gradient(90deg, rgba(40, 167, 69, 0.05), transparent);
+}
+
+tr[data-payment-method="cash"] {
+    border-left: 4px solid #ffc107;
+    background: linear-gradient(90deg, rgba(255, 193, 7, 0.05), transparent);
+}
+
+/* ===== RESPONSIVE DESIGN untuk Mobile ===== */
+@media (max-width: 768px) {
+    .custom-notification-popup,
+    .midtrans-pooling-popup {
+        width: 95% !important;
+        margin: 0 5% !important;
+        border-radius: 15px !important;
+    }
+    
+    .order-details-box {
+        padding: 12px !important;
+        border-width: 2px !important;
+    }
+    
+    .detail-row {
+        font-size: 13px !important;
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 4px !important;
+        text-align: left !important;
+    }
+    
+    .detail-row strong {
+        min-width: auto !important;
+        margin-bottom: 4px !important;
+        font-size: 13px !important;
+    }
+    
+    .detail-row span {
+        width: 100% !important;
+        text-align: left !important;
+        font-size: 13px !important;
+    }
+    
+    .total-amount {
+        font-size: 15px !important;
+        padding: 10px 14px !important;
+    }
+    
+    .notification-title {
+        font-size: 18px !important;
+    }
+
+    .notif-status .badge {
+        min-width: 140px !important;
+        font-size: 10px !important;
+        padding: 6px 12px !important;
+    }
+
+    .notification-controls button {
+        font-size: 10px !important;
+        padding: 6px 12px !important;
+    }
+}
+
+@media (max-width: 576px) {
+    .custom-notification-popup,
+    .midtrans-pooling-popup {
+        width: 98% !important;
+        margin: 0 1% !important;
+    }
+    
+    .order-details-box {
+        padding: 10px !important;
+    }
+    
+    .detail-row {
+        font-size: 12px !important;
+    }
+    
+    .detail-row strong {
+        font-size: 12px !important;
+    }
+    
+    .detail-row span {
+        font-size: 12px !important;
+    }
+    
+    .total-amount {
+        font-size: 14px !important;
+        padding: 8px 12px !important;
+    }
+    
+    .swal2-popup.custom-notification-popup .swal2-title {
+        font-size: 18px !important;
+    }
+
+    .notif-status .badge {
+        min-width: 120px !important;
+        font-size: 9px !important;
+        padding: 5px 10px !important;
+    }
+}
+
+/* ===== ACCESSIBILITY IMPROVEMENTS ===== */
+@media (prefers-reduced-motion: reduce) {
+    .notification-controls button,
+    .notif-status .badge,
+    .total-amount,
+    .order-details-box {
+        animation: none !important;
+        transition: none !important;
+    }
+}

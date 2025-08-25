@@ -1,17 +1,27 @@
 @extends('admin.main')
 
 @section('content')
-    <div class="container">
-        <div class="d-flex justify-content-between align-items-center mb-3">
-            <h2>Daftar Meja</h2>
-            <a href="{{ route('admin.meja.create') }}" class="btn btn-sm btn-success">➕ Tambah Meja</a>
-        </div>
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2>Data Meja</h2>
+        <a href="{{ route('admin.meja.create') }}" class="btn btn-sm btn-success">➕ Tambah Meja</a>
+    </div>
 
-        @php
-            $ngrokUrl = config('app.webhook_url');
-        @endphp
+    @php
+        $ngrokUrl = config('app.webhook_url');
+    @endphp
 
-        <table class="table table-bordered">
+    <style>
+        thead tr th {
+            background-color: #007bff !important; /* Biru Bootstrap */
+            color: white !important;
+            text-align: center;
+            vertical-align: middle;
+        }
+    </style>
+
+    <div class="table-responsive">
+        <table class="table table-bordered table-hover">
             <thead>
                 <tr>
                     <th>ID</th>
@@ -26,11 +36,11 @@
             <tbody>
                 @foreach($mejas as $meja)
                 <tr>
-                    <td>{{ $meja->id }}</td>
-                    <td>{{ $meja->nomor_meja }}</td>
-                    <td>{{ ucfirst($meja->tipe_meja) }}</td>
-                    <td>{{ $meja->lantai }}</td>
-                    <td>
+                    <td class="text-center">{{ $meja->id }}</td>
+                    <td class="text-center">{{ $meja->nomor_meja }}</td>
+                    <td class="text-center">{{ ucfirst($meja->tipe_meja) }}</td>
+                    <td class="text-center">{{ $meja->lantai }}</td>
+                    <td class="text-center">
                         @if($meja->status === 'tersedia')
                             <span class="badge bg-success">Tersedia</span>
                         @elseif($meja->status === 'terisi')
@@ -39,23 +49,20 @@
                             <span class="badge bg-danger">Dibersihkan</span>
                         @endif
                     </td>
-                    <td>
+                    <td class="text-center">
                         @if($meja->qr_code)
                             <img src="{{ asset($meja->qr_code) }}" alt="QR Code" width="100" class="mb-1"><br>
-
                             <a href="{{ route('cart.dinein.booking.by.meja', $meja->id) }}" target="_blank" class="d-block mb-1">🔗 Booking Meja</a>
-
                             @if($ngrokUrl)
                                 <a href="{{ rtrim($ngrokUrl, '/') . '/dinein/booking/' . $meja->id }}" target="_blank" class="d-block mb-1">🔗 Booking via Ngrok</a>
                             @endif
-
                             <a href="{{ asset($meja->qr_code) }}" download class="btn btn-sm btn-success mt-1">⬇️ Download QR</a>
                         @else
                             <span class="text-danger">QR Code Tidak Tersedia</span>
                         @endif
                     </td>
-                    <td>
-                        <a href="{{ route('admin.meja.edit', $meja->id) }}" class="btn btn-warning btn-sm">Edit</a>
+                    <td class="text-center">
+                        <a href="{{ route('admin.meja.edit', $meja->id) }}" class="btn btn-warning btn-sm mb-1">Edit</a>
                         <form action="{{ route('admin.meja.destroy', $meja->id) }}" method="POST" style="display:inline;">
                             @csrf
                             @method('DELETE')
@@ -67,4 +74,5 @@
             </tbody>
         </table>
     </div>
+</div>
 @endsection

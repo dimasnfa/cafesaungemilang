@@ -19,7 +19,7 @@
             <select name="status_pesanan" id="status_pesanan" class="form-control" required>
                 <option value="pending" {{ $pesanan->status_pesanan == 'pending' ? 'selected' : '' }}>Pending</option>
                 <option value="dibayar" {{ $pesanan->status_pesanan == 'dibayar' ? 'selected' : '' }}>Dibayar</option>
-                <option value="selesai" {{ $pesanan->status_pesanan == 'selesai' ? 'selected' : '' }}>Selesai</option>
+                {{-- <option value="selesai" {{ $pesanan->status_pesanan == 'selesai' ? 'selected' : '' }}>Selesai</option> --}}
                 <option value="dibatalkan" {{ $pesanan->status_pesanan == 'dibatalkan' ? 'selected' : '' }}>Dibatalkan</option>
             </select>
         </div>
